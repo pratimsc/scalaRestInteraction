@@ -1,3 +1,7 @@
+import AssemblyKeys._ // put this at the top of the file
+
+assemblySettings 
+
 name := "youtubeUploader"
 
 version := "0.1.0"
@@ -30,7 +34,7 @@ libraryDependencies ++={
                 "junit"                     %	"junit"                     % junitVersion withSources(),
                 "org.scalatest"             %%	"scalatest"                 % scalaTestVersion withSources(),                
                 "com.typesafe"              %%	"scalalogging-slf4j" 		% "1.0.1" withSources(),
-                "com.typesafe.play" 		% 	"play_2.10" 				% playVersion withSources()
+                "com.typesafe.play" 		%% 	"play"		 				% playVersion withSources()
         )
 }
 
