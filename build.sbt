@@ -34,7 +34,8 @@ libraryDependencies ++={
                 "junit"                     %	"junit"                     % junitVersion withSources(),
                 "org.scalatest"             %%	"scalatest"                 % scalaTestVersion withSources(),                
                 "com.typesafe"              %%	"scalalogging-slf4j" 		% "1.0.1" withSources(),
-                "com.typesafe.play" 		%% 	"play"		 				% playVersion withSources()
+                "com.typesafe.play" 		%% 	"play"		 				% playVersion withSources(),
+                "net.databinder.dispatch"	%%	"dispatch-core" 			% "0.11.0" withSources()
         )
 }
 
