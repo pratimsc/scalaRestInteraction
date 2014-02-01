@@ -21,12 +21,11 @@ libraryDependencies ++={
         val scalaTestVersion = "2.0"
         val newmanVersion = "1.3.5"
         val playVersion = "2.2.1"
+        val bouncycastleVersion = "1.50"
          Seq(
                 "com.typesafe.akka"			%%	"akka-actor"				% akkaVersion withSources(),
                 "com.typesafe.akka"         %%  "akka-slf4j"                % akkaVersion withSources(),
                 "com.typesafe.slick"        %%  "slick"                     % slickVersion withSources(),
-                "net.liftweb"               %%	"lift-json"                 % liftVersion withSources(),
-                "net.liftweb"               %%	"lift-json-ext"             % liftVersion withSources(),
                 "ch.qos.logback"            %	"logback-classic"        	% logbackVersion withSources(),
                 "joda-time"                 %	"joda-time"                 % jodaVersion withSources(),
                 "org.joda"                  %	"joda-convert"              % "1.5" withSources(),
@@ -35,7 +34,10 @@ libraryDependencies ++={
                 "org.scalatest"             %%	"scalatest"                 % scalaTestVersion withSources(),                
                 "com.typesafe"              %%	"scalalogging-slf4j" 		% "1.0.1" withSources(),
                 "com.typesafe.play" 		%% 	"play"		 				% playVersion withSources(),
-                "net.databinder.dispatch"	%%	"dispatch-core" 			% "0.11.0" withSources()
+                "com.typesafe.play" 		%% 	"play-json"	 				% playVersion withSources(),
+                "net.databinder.dispatch"	%%	"dispatch-core" 			% "0.11.0" withSources(),
+                "org.bouncycastle"			%	"bcprov-jdk14"				% bouncycastleVersion withSources(),
+                "org.bouncycastle" 			%	"bcpkix-jdk14" 				% bouncycastleVersion withSources()
         )
 }
 
