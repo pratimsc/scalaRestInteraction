@@ -32,7 +32,9 @@ import java.nio.charset.StandardCharsets
 object GoogleOauth2 {
   val _SecurityProvider = new BouncyCastleProvider
   val _SignatureAlgorithm = "SHA256withRSA"
-  val _base64Encoder = new BASE64Encoder
+  val _Base64Encoder = new BASE64Encoder
+  val _GoogleOauth2Url = new URI("""https://accounts.google.com/o/oauth2/token""")
+  val _GoogleGrantType = """urn:ietf:params:oauth:grant-type:jwt-bearer"""
 
   /**
    * Generate the JWT header as required by Google.
@@ -50,8 +52,8 @@ object GoogleOauth2 {
    */
   def generateJwtClaimSet(jwtClaimSet: GoogleJwtClaimSet) = Json.obj(
     "iss" -> jwtClaimSet.iss,
-    "scope" -> jwtClaimSet.scope.map(_.toASCIIString()).mkString(" "),
-    "aud" -> jwtClaimSet.aud.toASCIIString(),
+    "scope" -> jwtClaimSet.scope.mkString(" "),
+    "aud" -> jwtClaimSet.aud,
     "exp" -> (jwtClaimSet.iat.getMillis() / 1000 + 3600),
     "iat" -> jwtClaimSet.iat.getMillis() / 1000)
 
@@ -66,9 +68,9 @@ object GoogleOauth2 {
   def generateSignedJWTwithBase64Encoding(jwtClaimSet: GoogleJwtClaimSet, keyStore: File, keyStoreType: String = "pkcs12", keyStorePassword: String = "notasecret") = {
     val jwtHeader = generateJwtHeader.toString
     val jwtBody = generateJwtClaimSet(jwtClaimSet).toString
-    val dataToBeSigned = _base64Encoder.encode(jwtHeader.getBytes(StandardCharsets.UTF_8)) + "." + _base64Encoder.encode(jwtBody.getBytes(StandardCharsets.UTF_8))
+    val dataToBeSigned = _Base64Encoder.encode(jwtHeader.getBytes(StandardCharsets.UTF_8)) + "." + _Base64Encoder.encode(jwtBody.getBytes(StandardCharsets.UTF_8))
     val signature = digitallySignData(dataToBeSigned.getBytes(), extractPrivateKey(keyStore, keyStoreType, keyStorePassword))
-    _base64Encoder.encode(jwtHeader.getBytes()) + "." + _base64Encoder.encode(jwtBody.getBytes()) + "." + _base64Encoder.encode(signature)
+    _Base64Encoder.encode(jwtHeader.getBytes()) + "." + _Base64Encoder.encode(jwtBody.getBytes()) + "." + _Base64Encoder.encode(signature)
   }
 
   /**
@@ -120,20 +122,49 @@ object GoogleOauth2 {
   /**
    * Get Authorization code from Google
    */
-  def getGoogleOAUTH2AuthorizationCode(jwtClaimSet: GoogleJwtClaimSet, keyStore: File, keyStoreType: String = "pkcs12", keyStorePassword: String = "notasecret") = {
-    val grant_type = """urn:ietf:params:oauth:grant-type:jwt-bearer"""
-    val assertion = generateSignedJWTwithBase64Encoding(jwtClaimSet, keyStore, keyStoreType, keyStorePassword)
-    val googleOauth2Url = """https://accounts.google.com/o/oauth2/token"""
-    val req = url(googleOauth2Url.toString()).POST
-    val queryMap = Map("grant_type" -> grant_type, "assertion" -> assertion)
+  def getGoogleOAUTH2AuthorizationCode(assertion: String) = {
+    val req = url(_GoogleOauth2Url.toString()).POST
+    val body = Map("grant_type" -> _GoogleGrantType, "assertion" -> assertion)
     val header = Map("Host" -> "accounts.google.com", "Content-Type" -> """application/x-www-form-urlencoded""")
-
-    Http((req <:< header << queryMap))
+    Http((req <:< header << body))
   }
 
 }
 
+/**
+ * A case class to build the authorization code request body.
+ */
 case class GoogleJwtClaimSet(val iss: String,
-  val scope: List[URI],
-  val aud: URI = new URI("https://accounts.google.com/o/oauth2/token"),
+  val scope: List[String],
+  val aud: String = "https://accounts.google.com/o/oauth2/token",
   val iat: DateTime = new DateTime())
+
+/**
+ * A case class to store Google developer secret information
+ */
+case class GoogleOAUTH2ClientSecret(val auth_uri: String = "https://accounts.google.com/o/oauth2/auth",
+  val token_uri: String = "https://accounts.google.com/o/oauth2/token",
+  val client_email: String,
+  val client_x509_cert_url: String,
+  val client_id: String,
+  val auth_provider_x509_cert_url: String = "https://www.googleapis.com/oauth2/v1/certs")
+/**
+ * A companion object for JSON parsing
+ */
+object GoogleOAUTH2ClientSecret {
+  implicit val fmt = Json.format[GoogleOAUTH2ClientSecret]
+}
+
+/**
+ * A class to hold the Authourization code return by Google
+ */
+case class GoogleOAUTH2AccessCode(val access_token: String,
+  val token_type: String,
+  val expires_in: Int)
+
+/**
+ * A companion object for JSON parsing
+ */
+object GoogleOAUTH2AccessCode {
+  implicit val fmt = Json.format[GoogleOAUTH2AccessCode]
+}
