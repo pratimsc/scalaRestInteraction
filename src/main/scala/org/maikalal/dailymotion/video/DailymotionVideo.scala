@@ -11,28 +11,31 @@ import com.ning.http.client.Response
 import scala.util.Try
 import scala.concurrent.future
 import scala.concurrent.Promise
+import org.maikalal.dailymotion.oauth.DailymotionAPICredential
+import play.api.libs.json.JsValue
+import org.joda.time.DateTime
+import org.maikalal.seccam.utils.Util
 
 object DailymotionVideo {
 
-  val _VideoUploadURI = "https://api.dailymotion.com/file/upload"
+  val _VideoUploadRequestURI = "https://api.dailymotion.com/file/upload"
+  val _VideoUploadApprovalURI = "https://api.dailymotion.com/me/videos"
   val _VideoListURI = "https://api.dailymotion.com/videos"
-  def _VideoSingleURI(id: String) = s"https://api.dailymotion.com/video/${id}"
+  def _VideoPublishURI(id: String) = s"https://api.dailymotion.com/video/${id}"
 
   /**
    * Fetch the video upload url from Dailymotion.
    * The videos have to be POSTed to the upload url.
    */
-  def fetchVideoUploadUrls(oauth: DailymotionOauthToken): Future[Either[Throwable, Map[String, String]]] = {
-    val req = url(_VideoUploadURI).GET
+  def fetchVideoUploadUrls(oauth: DailymotionOauthToken): Future[Map[String, String]] = {
+    val req = url(_VideoUploadRequestURI).GET
     val params = Map("access_token" -> oauth.access_token)
-    val res = Http((req <<? params) OK as.String)
-    res map { r =>
-      val json = Json.parse(r)
-      val upload_url = json \ "upload_url"
-      val progress_url = json \ "progress_url"
-      Right(Map("upload_url" -> upload_url.as[String], "progress_url" -> progress_url.as[String]))
-    } recover {
-      case err => Left(err)
+    val res = Http(req <<? params)
+    val json = Util.extractJsonFromResponse(res)
+    json map { j =>
+      val upload_url = (j \ "upload_url").as[String]
+      val progress_url = (j \ "progress_url").as[String]
+      Map("upload_url" -> upload_url, "progress_url" -> progress_url)
     }
   }
 
@@ -43,7 +46,7 @@ object DailymotionVideo {
    * The POST request to the approval url must follow immediately.
    */
 
-  def uploadVideo(uploadUrl: String, video: File): Future[String] = {
+  def uploadVideoForApproval(uploadUrl: String, video: File): Future[String] = {
     val promise = Promise[String]
     future {
       val header = Map("Content-Type" -> "multipart/form-data")
@@ -55,6 +58,7 @@ object DailymotionVideo {
         postRequest.addBodyPart(new FilePart("file", video));
         val res = postRequest.execute().get();
         val json = Json.parse(res.getResponseBody())
+        println("Post upload the reponse is ->\n" + Json.prettyPrint(json))
         val url = (json \ "url").as[String]
         url
       }
@@ -67,8 +71,58 @@ object DailymotionVideo {
    * This is achived by sending POST request with video metadata to approval url returned by Dailymotion post upload.
    */
   def approveUploadedVideo(approvalUrl: String) = {
-    val req = url(approvalUrl).POST
-    //Send the response as Json value
-    Http(req OK as.String) map (Json.parse(_))
+    val res = Http(url(approvalUrl).POST)
+    Util.extractJsonFromResponse(res)
   }
+
+  /**
+   * Upload a single video to Dailymotion
+   */
+  def uploadSingleVideoToDailymotion(oauth: DailymotionOauthToken, video: File): Future[JsValue] = {
+    val videoMetadataJson = for {
+      uploadUrl <- fetchVideoUploadUrls(oauth)
+      approveUrl <- uploadVideoForApproval(uploadUrl.get("upload_url").get, video)
+      approval <- approveTheUploadedVideo(approveUrl, oauth)
+      publish <- publishVideo(video, (approval \ "id").as[String], oauth)
+    } yield {
+      println("OATH2 Value used ->\n" + Json.prettyPrint(Json.toJson(oauth)))
+      println("The Upload and Progress urls are ->\n" + Json.prettyPrint(Json.toJson(uploadUrl)))
+      println("The approval url is -> \n" + approveUrl)
+      println("The approvals is -> \n" + Json.prettyPrint(approval))
+      println("The published information is -> \n" + Json.prettyPrint(publish))
+      publish
+      approval
+    }
+    videoMetadataJson
+  }
+
+  /**
+   * Approve the video
+   */
+  def approveTheUploadedVideo(approveUrl: String, oauth: DailymotionOauthToken) = {
+    val res = Http(url(_VideoUploadApprovalURI).POST << Map("url" -> approveUrl, "access_token" -> oauth.access_token))
+    Util.extractJsonFromResponse(res)
+  }
+
+  /**
+   * Publish the video
+   */
+  def publishVideo(video: File, videoId: String, oauth: DailymotionOauthToken) = {
+    val res = Http(url(_VideoPublishURI(videoId)).POST << Map("access_token" -> oauth.access_token) ++ generateVideoMetadata(video))
+    Util.extractJsonFromResponse(res)
+  }
+
+  /**
+   * Generate video metata for Dailymotion
+   */
+  def generateVideoMetadata(video: File) = Map(
+    "title" -> (DateTime.now() + "_" + video.getName()),
+    "channel" -> "webcam",
+    "tags" -> (new DateTime).toString())
+
+  /**
+   * Class to represent a Daily motion video
+   */
+  case class DailymotionVideo()
 }
+

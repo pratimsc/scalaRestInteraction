@@ -1,11 +1,19 @@
-package org.maikalal.ams.sim.utils
+package org.maikalal.seccam.utils
 
 import java.io.File
-
 import scala.util.Try
-
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import java.io.Writer
+import java.io.FileWriter
+import java.io.PrintWriter
+import scala.io.Source
+import java.nio.charset.StandardCharsets
+import scala.io.Codec
+import com.ning.http.client.Response
+import scala.concurrent._
+import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.json.Json
 
 object Util {
   val DT_FORMAT_CCYYMMDD = "yyyyMMdd"
@@ -59,4 +67,46 @@ object Util {
     recur(List(file), List())
   }
 
+  /**
+   * Helper function to write data to a file.
+   */
+  def writeToFile(f: File)(p: PrintWriter => Unit) = {
+    val out = new PrintWriter(f)
+    try {
+      p(out)
+    } finally {
+      out.close()
+    }
+  }
+
+  /**
+   * Helper function to read from a file
+   */
+  def readFromFile(input: File)(implicit codec: Codec) = {
+    val f = Source.fromFile(input)(codec)
+    val data = f.getLines.toList
+    f.close
+    data
+  }
+
+  /**
+   * Helper function to delete a file
+   */
+  def deleteFile(f: File): Boolean = f.delete()
+
+  /**
+   * Helper function to print
+   */
+  def reportFailuresOfFuture: PartialFunction[Throwable, Unit] = {
+    case err => println("Some error has occured->" + err.getMessage())
+  }
+
+  /**
+   * Helper function to transform a Future[Response] to Future[JsValue]
+   */
+  def extractJsonFromResponse(res: Future[Response]) = {
+    val json = res.map(r => Json.parse(r.getResponseBody()))
+    res onFailure (Util.reportFailuresOfFuture)
+    json
+  }
 }

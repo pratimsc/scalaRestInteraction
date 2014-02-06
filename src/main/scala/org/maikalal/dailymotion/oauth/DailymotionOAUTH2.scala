@@ -14,7 +14,7 @@ object DailymotionOAUTH2 {
   /**
    * Get Authorization code from Dailymotion
    */
-  def borrowAccessToken(api: DailymotionAPICredential, scopes: List[String] = Nil, user: DailymotionEndUser): Future[Either[Throwable, DailymotionOauthToken]] = {
+  def borrowAccessToken(api: DailymotionAPICredential, scopes: List[String] = Nil, user: DailymotionEndUser): Future[DailymotionOauthToken] = {
     val req = url(_DailymotionAccessTokenURI).POST
     val header = Map("Content-Type" -> """application/x-www-form-urlencoded""")
     val body = Map("grant_type" -> "password",
@@ -26,16 +26,14 @@ object DailymotionOAUTH2 {
 
     val res = Http((req <:< header << body) OK as.String)
     res.map { r =>
-      Right(Json.parse(r).as(DailymotionOauthToken.fmt))
-    }.recover {
-      case ex => Left(ex)
+      Json.parse(r).as(DailymotionOauthToken.fmt)
     }
   }
 
   /**
    * Get Access token using a Refresh token from Daimotion
    */
-  def renewAccessToken(api: DailymotionAPICredential, oauthToken: DailymotionOauthToken): Future[Either[Throwable, DailymotionOauthToken]] = {
+  def renewAccessToken(api: DailymotionAPICredential, oauthToken: DailymotionOauthToken): Future[DailymotionOauthToken] = {
     val req = url(_DailymotionAccessTokenURI).POST
     val header = Map("Content-Type" -> """application/x-www-form-urlencoded""")
     val body = Map("grant_type" -> "refresh_token",
@@ -45,10 +43,7 @@ object DailymotionOAUTH2 {
 
     val res = Http((req <:< header << body) OK as.String)
     res map { r =>
-      val t = Json.parse(r).as[DailymotionOauthToken](DailymotionOauthToken.fmt)
-      Right(oauthToken.copy(access_token = t.access_token, refresh_token = t.refresh_token))
-    } recover {
-      case err => Left(err)
+      Json.parse(r).as(DailymotionOauthToken.fmt)
     }
   }
 }
