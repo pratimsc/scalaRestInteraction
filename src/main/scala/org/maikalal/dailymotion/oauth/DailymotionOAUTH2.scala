@@ -7,15 +7,16 @@ import play.api.libs.json.Json
 import scala.util.Right
 import scala.util.Right
 import scala.concurrent.Future
+import org.maikalal.seccam.videos.SecCamVideoUploadSettings
 
 object DailymotionOAUTH2 {
-  val _DailymotionAccessTokenURI = """https://api.dailymotion.com/oauth/token"""
+  //val _DailymotionAccessTokenURI = """https://api.dailymotion.com/oauth/token"""
 
   /**
    * Get Authorization code from Dailymotion
    */
-  def borrowAccessToken(api: DailymotionAPICredential, scopes: List[String] = Nil, user: DailymotionEndUser): Future[DailymotionOauthToken] = {
-    val req = url(_DailymotionAccessTokenURI).POST
+  def borrowAccessToken(api: DailymotionAPICredential, scopes: List[String] = Nil, user: DailymotionEndUser)(implicit conf: SecCamVideoUploadSettings): Future[DailymotionOauthToken] = {
+    val req = url(conf.dailymotionApiOauth2AccessTokenURI).POST
     val header = Map("Content-Type" -> """application/x-www-form-urlencoded""")
     val body = Map("grant_type" -> "password",
       "client_id" -> api.apiKey,
@@ -33,8 +34,8 @@ object DailymotionOAUTH2 {
   /**
    * Get Access token using a Refresh token from Daimotion
    */
-  def renewAccessToken(api: DailymotionAPICredential, oauthToken: DailymotionOauthToken): Future[DailymotionOauthToken] = {
-    val req = url(_DailymotionAccessTokenURI).POST
+  def renewAccessToken(api: DailymotionAPICredential, oauthToken: DailymotionOauthToken)(implicit conf: SecCamVideoUploadSettings): Future[DailymotionOauthToken] = {
+    val req = url(conf.dailymotionApiOauth2AccessTokenURI).POST
     val header = Map("Content-Type" -> """application/x-www-form-urlencoded""")
     val body = Map("grant_type" -> "refresh_token",
       "client_id" -> api.apiKey,

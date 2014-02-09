@@ -14,6 +14,7 @@ import com.ning.http.client.Response
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.libs.json.Json
+import org.maikalal.dailymotion.oauth.DailymotionOauthToken
 
 object Util {
   val DT_FORMAT_CCYYMMDD = "yyyyMMdd"
@@ -108,5 +109,13 @@ object Util {
     val json = res.map(r => Json.parse(r.getResponseBody()))
     res onFailure (Util.reportFailuresOfFuture)
     json
+  }
+  
+  /**
+   * Helper function to read Dailymotion OAUTH2 from file
+   */
+  def readDailymotionOauth2(f:File) = {
+    val data = readFromFile(f).mkString(" ")
+    Json.parse(data).as[DailymotionOauthToken]    
   }
 }
