@@ -13,6 +13,7 @@ case class SecCamVideoUploadSettings(conf:Config) {
   val dailymotionAccountUserId = conf.getString("dailymotion.account.user.id")
   val dailymotionAccountUserPassword = conf.getString("dailymotion.account.user.password")
   val dailymotionApiOauth2AccessTokenURI = conf.getString("dailymotion.api.oauth2.access.token.uri")
+  val dailymotionApiOauth2AccessTokenPermittedAgeInSeconds = conf.getLong("dailymotion.api.oauth2.access.token.permitted.age.inSeconds")
   val dailymotionApiOauth2AccessTokenDownloadJsonFile = conf.getString("dailymotion.api.oauth2.access.token.download.json.file")
   val dailymotionApiVideoUploadScope = conf.getStringList("dailymotion.api.video.upload.scopes").toList
   val dailymotionApiVideoUploadRequestUri = conf.getString("dailymotion.api.video.upload.request.uri")

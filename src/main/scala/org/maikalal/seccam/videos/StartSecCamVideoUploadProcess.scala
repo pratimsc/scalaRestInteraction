@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets
 import org.maikalal.dailymotion.oauth.DailymotionOAUTH2
 import org.maikalal.dailymotion.oauth.DailymotionEndUser
 import org.maikalal.dailymotion.oauth.DailymotionAPICredential
+import org.joda.time.DateTime
 
 object StartSecCamVideoUploadProcess extends Logging {
 
@@ -28,30 +29,39 @@ object StartSecCamVideoUploadProcess extends Logging {
 
     //Get the initial OAUTH token
     val oauthJsonFile = new File(conf.dailymotionApiOauth2AccessTokenDownloadJsonFile)
-    val oauth = if (oauthJsonFile.exists()) {
+    //Get age of Oauth2 token in seconds
+    val oauthAge = (DateTime.now.getMillis - oauthJsonFile.lastModified) / 1000
+    val oauth = if (oauthJsonFile.exists() && oauthAge > conf.dailymotionApiOauth2AccessTokenPermittedAgeInSeconds) {
       logger.info(s"Reading the oauth2 information from file [${oauthJsonFile}]")
       val json = Util.readFromFile(oauthJsonFile).mkString("")
       Json.parse(json).as[DailymotionOauthToken]
     } else {
-      logger.info(s"Requesting a new OAUTH token from daily motion")
-      val api = DailymotionAPICredential(conf.dailymotionApiKey, conf.dailymotionApiSecret)
-      val user = DailymotionEndUser(conf.dailymotionAccountUserId, Some(conf.dailymotionAccountUserPassword))
-      val newOauth = Await.result(DailymotionOAUTH2.borrowAccessToken(api, conf.dailymotionApiVideoUploadScope, user), 1 minute)
-      logger.info(s"Recieved a new OAUTH token from daily motion")
-      logger.info(s"Persist the a new OAUTH token at location [${conf.dailymotionApiOauth2AccessTokenDownloadJsonFile}]")
-      Util.writeToFile(oauthJsonFile)(p => p.write(Json.stringify(Json.toJson(newOauth))))
-      newOauth
+      requestOauth2Token
     }
 
     logger.info(s"Start PUBLISHING videos to Internet.")
     publishToInternet(oauth)
 
   }
+  /**
+   * Renew OAUTH2 token from Dailymotion
+   */
+  def requestOauth2Token()(implicit conf: SecCamVideoUploadSettings) = {
+    logger.info(s"Requesting a new OAUTH token from daily motion")
+    val oauthJsonFile = new File(conf.dailymotionApiOauth2AccessTokenDownloadJsonFile)
+    val api = DailymotionAPICredential(conf.dailymotionApiKey, conf.dailymotionApiSecret)
+    val user = DailymotionEndUser(conf.dailymotionAccountUserId, Some(conf.dailymotionAccountUserPassword))
+    val newOauth = Await.result(DailymotionOAUTH2.borrowAccessToken(api, conf.dailymotionApiVideoUploadScope, user), 1 minute)
+    logger.info(s"Recieved a new OAUTH token from daily motion")
+    logger.info(s"Persist the a new OAUTH token at location [${conf.dailymotionApiOauth2AccessTokenDownloadJsonFile}]")
+    Util.writeToFile(oauthJsonFile)(p => p.write(Json.stringify(Json.toJson(newOauth))))
+    newOauth
+  }
 
-  def publishToInternet(oauth: DailymotionOauthToken, sleepTime: Duration = 60 seconds)(implicit conf: SecCamVideoUploadSettings) {    
+  def publishToInternet(oauth: DailymotionOauthToken, sleepTime: Duration = 60 seconds)(implicit conf: SecCamVideoUploadSettings) {
     logger.info(s"Checking for new videos for upload at [${conf.securityCameraVideosSourceFolder}].")
     val videos = Await.result(SecCamVideoProcessor.getListOfVideos(new File(conf.securityCameraVideosSourceFolder)), 5 seconds)
-    
+
     if (videos.size > 0) {
       logger.info(s"Recieved new batch of [${videos.size}]videos to upload from [${conf.securityCameraVideosSourceFolder}].")
       val uploadActivity = future {
@@ -70,7 +80,7 @@ object StartSecCamVideoUploadProcess extends Logging {
       }
       Await.result(uploadActivity, 5 minutes)
       logger.info(s"Processing the batch FINISHED.")
-    }else{
+    } else {
       logger.info(s"NO new batch of videos are present at [${conf.securityCameraVideosSourceFolder}].")
     }
     logger.info(s"Waiting for [${sleepTime.toMillis}] millis or [${sleepTime}] before polling for next batch of videos.")
