@@ -22,4 +22,5 @@ case class SecCamVideoUploadSettings(conf:Config) {
   val dailymotionApiVideoListUri = conf.getString("dailymotion.api.video.list.uri")
   val securityCameraVideosSourceFolder = conf.getString("security.camera.video.source.folder")
   val securityCameraVideosArchiveFolder = conf.getString("security.camera.video.archive.folder")
+  val approvedVideoFileExtensions = conf.getStringList("approved.video.file.extensions").toList.map(_.toLowerCase())
 }
