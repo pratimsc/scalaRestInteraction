@@ -16,20 +16,38 @@ object SecCamVideoProcessor {
    * Get the file of videos is the given folder
    */
 
-  def getListOfVideos(f: File): Future[List[File]] = {
+  def getListOfVideos(f: File)(implicit conf: SecCamVideoUploadSettings): Future[List[File]] = {
     val promise = Promise[List[File]]
     future {
       val files = Util.extractFilesFromFolder(f)
       val videoFiles = files.filter(isVideoFile(_))
       promise success videoFiles
+      
+      /*
+       * Delete the files that are not video files
+       * Its best to do it here, so that when the function is called again next time,
+       * it does not have to re-process the non-video files.
+       */
+      val nonVideoFile = files.filter(!isVideoFile(_))
+      future {
+        nonVideoFile.map(_.delete())
+      }
     }
     promise.future
   }
 
   /**
    * Check whether file is video file or not
+   * The binary is not checked, the decision is made on the file extensions only.
    */
-  def isVideoFile(f: File): Boolean = true
+  def isVideoFile(f: File)(implicit conf: SecCamVideoUploadSettings): Boolean = {
+    conf.approvedVideoFileExtensions.filter(f.getName().toLowerCase().endsWith(_)) match {
+      case h :: tail =>
+        //Has extension that matches with most common video formats. So probably a video file.
+        true
+      case _ => false
+    }
+  }
 
   /**
    * Upload a Single video files to Internet website Dailymotion.com
